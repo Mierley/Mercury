@@ -1,11 +1,19 @@
-﻿
-
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using System.Xml;
 using Microsoft.VisualBasic.FileIO;
 using Newtonsoft.Json;
 using JsonConverter = System.Text.Json.Serialization.JsonConverter;
 
+public abstract class GeneralDB<T>
+{
+	public abstract List<T> LoadAll(FileInfo[] files);
+}
+public abstract class ConsoleBook<T>
+{
+	protected GeneralDB<T> db;
+	public abstract void PrintPage(int page_num, int page_size);
+	public abstract void PrintSearchResult(string searchString);
+}
 public class Participant
 {
 	public Participant(string name, string surname, DateTime dateTime, string provider)
@@ -15,7 +23,6 @@ public class Participant
 		DateTime = dateTime;
 		Provider = provider;
 	}
-
 	public string Name { get; }
 	public string Surname { get; }
 	public DateTime DateTime { get; }
@@ -34,7 +41,6 @@ public class Participant
 		return HashCode.Combine(Name, Surname);
 	}
 }
-
 public class ParticipantsParser
 {
 	public ParticipantsParser() { }
@@ -66,10 +72,8 @@ public class ParticipantsParser
 			DateTime dateTime = DateTime.Parse(node["RegisterDate"].InnerText);
 			participants.Add(new Participant(name, surname, dateTime, "Сервис №2"));
 		}
-
 		return participants;
 	}
-
 	private List<Participant> ParseFromCSV(FileInfo fileInfo)
 	{
 		List<Participant> participants = new List<Participant>();
@@ -86,7 +90,6 @@ public class ParticipantsParser
 		}
 		return participants;
 	}
-
 	private List<Participant> ParseFromJSON(FileInfo fileInfo)
 	{
 		List<Participant> participants = new List<Participant>();
@@ -99,12 +102,9 @@ public class ParticipantsParser
 			var jParticipant = JsonConvert.DeserializeAnonymousType(jObject.ToString(), jsonParticipantModel);
 			participants.Add(new Participant(jParticipant.FirstName, jParticipant.LastName, jParticipant.RegistrationDate, "Сервис №1"));
 		}
-
 		return participants;
 	}
 }
-
-
 public class ParticipantsDB : GeneralDB<Participant>
 {
 	public override List<Participant> LoadAll(FileInfo[] files)
@@ -130,27 +130,8 @@ public class ParticipantsDB : GeneralDB<Participant>
 				}
 			}
 		}
-
 		return participants.OrderBy(i => i.DateTime).ToList();
 	}
-
-}
-
-public abstract class GeneralDB<T>
-{
-	public abstract List<T> LoadAll(FileInfo[] files);
-}
-
-/// <summary>
-/// класс обертка
-/// лист -> книга
-/// </summary>
-public abstract class ConsoleBook<T>
-{
-	protected GeneralDB<T> db;
-	public abstract void PrintPage(int page_num, int page_size);
-
-	public abstract void PrintSearchResult(string searchString);
 }
 
 public class ParticipantConsoleBook : ConsoleBook<Participant>
@@ -179,7 +160,6 @@ public class ParticipantConsoleBook : ConsoleBook<Participant>
 		}
 		return participantsFromDB;
 	}
-
 	private List<Participant> GetSearchResult(string searchString)
 	{
 		return participantsFromDB.Where(x => x.Surname.Contains(searchString) || x.Name.Contains(searchString)).ToList();
