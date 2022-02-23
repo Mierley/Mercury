@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.ComponentModel.Design;
+using System.Text.Json.Serialization;
 using System.Xml;
 using Microsoft.VisualBasic.FileIO;
 using Newtonsoft.Json;
@@ -141,7 +142,7 @@ public class ParticipantConsoleBook : ConsoleBook<Participant>
 	public ParticipantConsoleBook(FileInfo[] files)
 	{
 		this.files = files;
-		db = new ParticipantsDB(); 
+		db = new ParticipantsDB();
 		participantsFromDB = db.LoadAll(files);
 	}
 	public override void PrintPage(int page_num, int page_size = 5)
@@ -154,11 +155,12 @@ public class ParticipantConsoleBook : ConsoleBook<Participant>
 	}
 	private List<Participant> GetParticipantsOnPage(int page_num, int page_size = 5)
 	{
-		if (participantsFromDB.Count >= page_size * (page_num-1))
+		if (participantsFromDB.Count >= page_size * (page_num - 1))
 		{
 			return participantsFromDB.GetRange(page_size * (page_num - 1), Math.Min(participantsFromDB.Count - (page_num - 1) * page_size, page_size));
 		}
-		return participantsFromDB;
+
+		return participantsFromDB.GetRange(participantsFromDB.Count - page_size, page_size);
 	}
 	private List<Participant> GetSearchResult(string searchString)
 	{
@@ -166,11 +168,16 @@ public class ParticipantConsoleBook : ConsoleBook<Participant>
 	}
 	private void PrintTable(List<Participant> participants)
 	{
-		Console.WriteLine(String.Format("{0,-18} {1,-25} {2,-30} {3,-20}\n\n", "Имя", "Фамилия", "Дата регистрации", "Поставщик"));
-
-		foreach (var participant in participants)
+		if (participants.Count != 0)
 		{
-			Console.WriteLine(String.Format("{0,-18} {1,-25} {2,-30} {3,-20}\n", participant.Name, participant.Surname, participant.DateTime.ToString(), participant.Provider));
+			Console.WriteLine(String.Format("\n{0,-18} {1,-25} {2,-30} {3,-20}\n", "Имя", "Фамилия", "Дата регистрации",
+				"Поставщик"));
+
+			foreach (var participant in participants)
+			{
+				Console.WriteLine(String.Format("{0,-18} {1,-25} {2,-30} {3,-20}\n", participant.Name,
+					participant.Surname, participant.DateTime.ToString(), participant.Provider));
+			}
 		}
 	}
 }
@@ -186,8 +193,30 @@ public class Programm
 		};
 
 		ParticipantConsoleBook book = new ParticipantConsoleBook(files);
-		book.PrintPage(2, 5);
-		book.PrintSearchResult("а");
-	}
 
+		string text;
+		while ((text = Console.ReadLine()) != "stop")
+		{
+			string[] words = text.Split(" ");
+			if (words[0] == "get-page")
+			{
+				int page;
+				if (Int32.TryParse(words[1], out page))
+					book.PrintPage(page, 5);
+				else
+				{
+					Console.WriteLine("\nInvalid page number\n");
+				}
+
+			}
+			else if (words[0] == "search")
+			{
+				book.PrintSearchResult(words[1].Substring(1, words[1].Length - 2));
+			}
+			else
+			{
+				Console.WriteLine("\nThis command do not exist\n");
+			}
+		}
+	}
 }
