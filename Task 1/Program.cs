@@ -1,6 +1,10 @@
 ﻿
 
+using System.Text.Json.Serialization;
 using System.Xml;
+using Microsoft.VisualBasic.FileIO;
+using Newtonsoft.Json;
+using JsonConverter = System.Text.Json.Serialization.JsonConverter;
 
 public class Participant
 {
@@ -15,7 +19,7 @@ public class Participant
 	public string Name { get; }
 	public string Surname { get; }
 	public DateTime DateTime { get; }
-	private string Provider { get; }
+	public string Provider { get; }
 
 	public override bool Equals(object? obj)
 	{
@@ -24,14 +28,16 @@ public class Participant
 
 		return Name.Equals(other.Name) && Surname.Equals(other.Surname);
 	}
+
+	public override int GetHashCode()
+	{
+		return HashCode.Combine(Name, Surname);
+	}
 }
 
 public class ParticipantsParser
 {
-	public ParticipantsParser()
-	{
-
-	}
+	public ParticipantsParser() { }
 	public List<Participant> Parse(FileInfo file)
 	{
 		String extension = file.Extension;
@@ -50,7 +56,7 @@ public class ParticipantsParser
 	private List<Participant> ParseFromXML(FileInfo fileInfo)
 	{
 		XmlDocument docXML = new XmlDocument();
-		docXML.Load(fileInfo.FullName);
+		docXML.LoadXml(File.ReadAllText(fileInfo.FullName));
 
 		List<Participant> participants = new List<Participant>();
 		foreach (XmlNode node in docXML.DocumentElement!)
@@ -61,23 +67,44 @@ public class ParticipantsParser
 			participants.Add(new Participant(name, surname, dateTime, "Сервис №2"));
 		}
 
-		return null;
+		return participants;
 	}
 
 	private List<Participant> ParseFromCSV(FileInfo fileInfo)
 	{
-		return null;
+		List<Participant> participants = new List<Participant>();
+
+		using (Microsoft.VisualBasic.FileIO.TextFieldParser parser = new TextFieldParser(fileInfo.FullName))
+		{
+			parser.TextFieldType = FieldType.Delimited;
+			parser.SetDelimiters(",");
+			while (!parser.EndOfData)
+			{
+				string[] patricipantProperties = parser.ReadFields();
+				participants.Add(new Participant(patricipantProperties[0], patricipantProperties[1], DateTime.Parse(patricipantProperties[2]), "Сервис №3"));
+			}
+		}
+		return participants;
 	}
 
 	private List<Participant> ParseFromJSON(FileInfo fileInfo)
 	{
-		return null;
+		List<Participant> participants = new List<Participant>();
+
+		var jsonParticipantModel = new { FirstName = "", LastName = "", RegistrationDate = DateTime.Now };
+		var jObjects = JsonConvert.DeserializeAnonymousType(File.ReadAllText(fileInfo.FullName), new List<Object>());
+
+		foreach (var jObject in jObjects)
+		{
+			var jParticipant = JsonConvert.DeserializeAnonymousType(jObject.ToString(), jsonParticipantModel);
+			participants.Add(new Participant(jParticipant.FirstName, jParticipant.LastName, jParticipant.RegistrationDate, "Сервис №1"));
+		}
+
+		return participants;
 	}
 }
 
-/// <summary>
-/// объедение
-/// </summary>
+
 public class ParticipantsDB : GeneralDB<Participant>
 {
 	public override List<Participant> LoadAll(FileInfo[] files)
@@ -89,9 +116,7 @@ public class ParticipantsDB : GeneralDB<Participant>
 		{
 			foreach (Participant participant in parser.Parse(file))
 			{
-
 				Participant previousParticipant;
-
 
 				if (!participants.TryGetValue(participant, out previousParticipant))
 					participants.Add(participant);
@@ -108,6 +133,7 @@ public class ParticipantsDB : GeneralDB<Participant>
 
 		return participants.OrderBy(i => i.DateTime).ToList();
 	}
+
 }
 
 public abstract class GeneralDB<T>
@@ -119,17 +145,69 @@ public abstract class GeneralDB<T>
 /// класс обертка
 /// лист -> книга
 /// </summary>
-public class ConsoleBook<T>
+public abstract class ConsoleBook<T>
 {
+	protected GeneralDB<T> db;
+	public abstract void PrintPage(int page_num, int page_size);
 
+	public abstract void PrintSearchResult(string searchString);
 }
 
+public class ParticipantConsoleBook : ConsoleBook<Participant>
+{
+	private List<Participant> participantsFromDB;
+	protected FileInfo[] files;
+	public ParticipantConsoleBook(FileInfo[] files)
+	{
+		this.files = files;
+		db = new ParticipantsDB(); 
+		participantsFromDB = db.LoadAll(files);
+	}
+	public override void PrintPage(int page_num, int page_size = 5)
+	{
+		PrintTable(GetParticipantsOnPage(page_num, page_size));
+	}
+	public override void PrintSearchResult(string searchString)
+	{
+		PrintTable(GetSearchResult(searchString));
+	}
+	private List<Participant> GetParticipantsOnPage(int page_num, int page_size = 5)
+	{
+		if (participantsFromDB.Count >= page_size * (page_num-1))
+		{
+			return participantsFromDB.GetRange(page_size * (page_num - 1), Math.Min(participantsFromDB.Count - (page_num - 1) * page_size, page_size));
+		}
+		return participantsFromDB;
+	}
+
+	private List<Participant> GetSearchResult(string searchString)
+	{
+		return participantsFromDB.Where(x => x.Surname.Contains(searchString) || x.Name.Contains(searchString)).ToList();
+	}
+	private void PrintTable(List<Participant> participants)
+	{
+		Console.WriteLine(String.Format("{0,-18} {1,-25} {2,-30} {3,-20}\n\n", "Имя", "Фамилия", "Дата регистрации", "Поставщик"));
+
+		foreach (var participant in participants)
+		{
+			Console.WriteLine(String.Format("{0,-18} {1,-25} {2,-30} {3,-20}\n", participant.Name, participant.Surname, participant.DateTime.ToString(), participant.Provider));
+		}
+	}
+}
 public class Programm
 {
 	static void Main(string[] args)
 	{
-		ParticipantsParser parser = new ParticipantsParser();
-		parser.Parse(new FileInfo(@"C:\MINE\Programming\Mercury\Task 1\participants.xml"));
+		FileInfo[] files =
+		{
+			new FileInfo(@"C:\MINE\Programming\Mercury\Task 1\participants.csv"),
+			new FileInfo(@"C:\MINE\Programming\Mercury\Task 1\participants.json"),
+			new FileInfo(@"C:\MINE\Programming\Mercury\Task 1\participants.xml")
+		};
+
+		ParticipantConsoleBook book = new ParticipantConsoleBook(files);
+		book.PrintPage(2, 5);
+		book.PrintSearchResult("а");
 	}
 
 }
