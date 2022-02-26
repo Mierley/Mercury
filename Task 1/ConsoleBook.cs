@@ -13,6 +13,7 @@ namespace Task_1
 		public abstract void PrintSearchResult(string searchString);
 	}
 
+	///Class for operating with table of Participants
 	public sealed class ParticipantConsoleBook : ConsoleBook<Participant>
 	{
 		private readonly List<Participant> participantsFromDB;

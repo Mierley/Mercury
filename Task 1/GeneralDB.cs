@@ -13,6 +13,11 @@ namespace Task_1
 
 	public class ParticipantsDB : GeneralDB<Participant>
 	{
+		/// <summary>
+		/// Get Participants from all the files and unite them.
+		/// </summary>
+		/// <param name="files"></param>
+		/// <returns></returns>
 		public override List<Participant> LoadAll(FileInfo[] files)
 		{
 			HashSet<Participant> participants = new HashSet<Participant>();

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace Task_1
 {
+	///Class for operating with console. Reads and process commands
 	public class ConsoleShell
 	{
 		private static readonly FileInfo[] files;
